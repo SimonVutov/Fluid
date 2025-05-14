@@ -13,6 +13,33 @@ public class Fluid : MonoBehaviour
     public float particleVelocityCap = 0.3f;
     private Vector3[] positions;
     private Vector3[] velocities;
+    private Dictionary<Vector3Int, List<int>> map = new Dictionary<Vector3Int, List<int>>();
+
+    Vector3Int getKey(Vector3 pos)
+    {
+        return new Vector3Int(
+            Mathf.FloorToInt(pos.x / effectRadius),
+            Mathf.FloorToInt(pos.y / effectRadius),
+            Mathf.FloorToInt(pos.z / effectRadius)
+        );
+    }
+
+    void addParticleToMap(int index) {
+        Vector3Int key = getKey(positions[index]);
+        if (!map.ContainsKey(key))
+            map[key] = new List<int>();
+        map[key].Add(index);
+    }
+
+    void removeParticleFromMap(int index) {
+        Vector3Int key = getKey(positions[index]);
+        if (map.ContainsKey(key))
+        {
+            map[key].Remove(index);
+            if (map[key].Count == 0)
+                map.Remove(key);
+        }
+    }
 
     void Awake()
     {
@@ -22,8 +49,17 @@ public class Fluid : MonoBehaviour
         for (int i = 0; i < particleCount; i++)
         {
             positions[i] = Vector3.Scale(Random.insideUnitSphere, bounds);
+            addParticleToMap(i);
             velocities[i] = Vector3.zero;
         }
+    }
+
+    IEnumerable<Vector3Int> GetNeighborKeys(Vector3Int key)
+    {
+        for (int dx = -1; dx <= 1; dx++)
+            for (int dy = -1; dy <= 1; dy++)
+                for (int dz = -1; dz <= 1; dz++)
+                    yield return new Vector3Int(key.x + dx, key.y + dy, key.z + dz);
     }
 
     void FixedUpdate()
@@ -38,17 +74,30 @@ public class Fluid : MonoBehaviour
         {
             forces[i] = new Vector3(0, -9.81f / 60f, 0);
 
-            for (int j = 0; j < particleCount; j++)
+            Vector3Int cell = getKey(positions[i]);
+            foreach (Vector3Int neighbor in GetNeighborKeys(cell))
             {
-                if (i == j) continue;
-                Vector3 dir = positions[j] - positions[i];
-                float dist = dir.magnitude;
-                if (dist == 0) forces[i] += new Vector3(Random.Range(-1f, 1f), Random.Range(-1f, 1f), Random.Range(-1f, 1f)) * kConstant;
-                float q = dist / effectRadius;
-                if (q < 1f)
+                if (!map.TryGetValue(neighbor, out var neighborList)) continue;
+
+                foreach (int j in neighborList)
                 {
-                    float strength = (1 - q) * kConstant;
-                    forces[i] += -dir.normalized * strength;
+                    if (i == j) continue;
+
+                    Vector3 dir = positions[j] - positions[i];
+                    float dist = dir.magnitude;
+
+                    if (dist == 0f)
+                    {
+                        forces[i] += Random.insideUnitSphere * kConstant;
+                        continue;
+                    }
+
+                    float q = dist / effectRadius;
+                    if (q < 1f)
+                    {
+                        float strength = (1f - q) * kConstant;
+                        forces[i] += -dir.normalized * strength;
+                    }
                 }
             }
 
@@ -56,7 +105,7 @@ public class Fluid : MonoBehaviour
             velocities[i] = Vector3.ClampMagnitude(velocities[i], particleVelocityCap);
             // add force away from bounds
             float wallForceDist = 0.3f;
-            float wallForceStrength = 0.2f;
+            float wallForceStrength = 0.27f;
             // Distance from each wall
             float distRight = bounds.x - positions[i].x;
             float distLeft  = positions[i].x + bounds.x;
@@ -83,7 +132,9 @@ public class Fluid : MonoBehaviour
         for (int i = 0; i < particleCount; i++)
         {
             velocities[i] += forces[i];
+            removeParticleFromMap(i);
             positions[i]  += velocities[i];
+            addParticleToMap(i);
 
             // apply damping
             velocities[i] *= dampAmount;

@@ -406,13 +406,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4092cbabd26994be3966a47424896158, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  particleCount: 350
-  bounds: {x: 10, y: 10, z: 10}
+  particleCount: 1200
+  bounds: {x: 9, y: 9, z: 5}
   gizmoSphereRadius: 0.05
   gizmoColor: {r: 0, g: 1, b: 1, a: 1}
-  effectRadius: 2
-  kConstant: 0.01
-  dampAmount: 0.99
+  effectRadius: 0.8
+  kConstant: 0.08
+  dampAmount: 0.95
+  particleVelocityCap: 0.2
 --- !u!4 &556856389
 Transform:
   m_ObjectHideFlags: 0
